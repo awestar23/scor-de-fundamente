@@ -255,6 +255,11 @@ zi fără logare era istoric pierdut definitiv. Din 3 august 2026 rulează autom
 funcția 9 — cea mai valoroasă — are pe ce se construi. Restul se poate face oricând.
 
 Note operaționale, ca să nu se redescopere greu:
+- Cheia lui `unstable_cache` include commit-ul (`VERCEL_GIT_COMMIT_SHA`). Fără el,
+  cache-ul de o oră supraviețuiește deploy-ului, iar o reparație de calcul rămâne
+  invizibilă până expiră — sau, mai rău, pagina și ruta API servesc simultan
+  cifre diferite. S-a întâmplat: Ethereum apărea cu capitalizare pe pagină și
+  fără în `/api/protocols`.
 - Snapshot-ul are nevoie de **Node 22+** (`@supabase/supabase-js` cere WebSocket nativ).
 - Tabelul cere `grant` explicit către `service_role`, fiindcă proiectul are
   „Automatically expose new tables" dezactivat.
