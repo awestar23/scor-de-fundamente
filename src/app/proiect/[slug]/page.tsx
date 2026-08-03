@@ -141,8 +141,9 @@ function ScoredProtocol({
 
       <RiskNotice flags={flags} />
 
-      {protocol.revenue30d !== null && protocol.holdersRevenue30d !== null && (
+      {protocol.revenue30d !== null && (
         <FlowSection
+          fees30d={protocol.fees30d}
           revenue30d={protocol.revenue30d}
           holdersRevenue30d={protocol.holdersRevenue30d}
         />

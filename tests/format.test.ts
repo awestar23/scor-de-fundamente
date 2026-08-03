@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatMultiplier,
   formatPercent,
+  formatPercentVisible,
   formatScore,
   formatUsdCompact,
 } from "@/lib/format";
@@ -53,5 +54,30 @@ describe("procente", () => {
 
   it("zero e afișat explicit, nu omis — e o măsurătoare, nu o lipsă", () => {
     expect(formatPercent(0)).toBe("0%");
+  });
+});
+
+describe("o valoare nenulă nu se afișează niciodată ca 0%", () => {
+  it("Ethena reține 0,2% din comisioane, nu 0%", () => {
+    // 28.539 din 13.924.662 — rotunjirea la „0%" ar spune altceva decât realitatea.
+    expect(formatPercentVisible(28_539 / 13_924_662)).toBe("0,2%");
+  });
+
+  it("adaugă zecimale până când valoarea devine vizibilă", () => {
+    expect(formatPercentVisible(0.0004)).toBe("0,04%");
+    expect(formatPercentVisible(0.00004)).toBe("0,004%");
+  });
+
+  it("sub prag spune că e sub prag, nu că e zero", () => {
+    expect(formatPercentVisible(0.0000000001)).toBe("<0,001%");
+  });
+
+  it("zero adevărat rămâne 0%", () => {
+    expect(formatPercentVisible(0)).toBe("0%");
+  });
+
+  it("valorile normale rămân rotunde", () => {
+    expect(formatPercentVisible(0.93)).toBe("93%");
+    expect(formatPercentVisible(1)).toBe("100%");
   });
 });

@@ -31,6 +31,26 @@ export function formatPercent(value: number, decimals = 0): string {
   }).format(value * 100)}%`;
 }
 
+/**
+ * Ca `formatPercent`, dar garantează că o valoare diferită de zero nu se
+ * afișează niciodată ca „0%". Adaugă zecimale până devine vizibilă.
+ *
+ * Necesar fiindcă diferența dintre „nimic" și „foarte puțin" e exact ce
+ * predă produsul: Ethena reține 0,2% din comisioane, iar rotunjirea la „0%"
+ * ar spune altceva decât realitatea.
+ */
+export function formatPercentVisible(value: number): string {
+  if (value === 0) return "0%";
+
+  for (const decimals of [0, 1, 2, 3]) {
+    const text = formatPercent(value, decimals);
+    if (!/^0(,0*)?%$/.test(text)) return text;
+  }
+
+  // Sub 0,001% — spunem că e sub prag, nu că e zero.
+  return value > 0 ? "<0,001%" : ">-0,001%";
+}
+
 /** 17.234 → "17,2×" */
 export function formatMultiplier(value: number): string {
   return `${new Intl.NumberFormat("ro-RO", {
