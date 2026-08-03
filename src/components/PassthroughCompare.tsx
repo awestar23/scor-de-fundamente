@@ -13,9 +13,9 @@ import { formatPercent, formatUsdCompact } from "@/lib/format";
 export function PassthroughCompare({ protocols }: { protocols: ProtocolFinancials[] }) {
   const rows = protocols.map((p) => {
     const hasData =
-      p.revenue24h !== null && p.revenue24h > 0 && p.holdersRevenue24h !== null;
+      p.revenue30d !== null && p.revenue30d > 0 && p.holdersRevenue30d !== null;
     const passthrough = hasData
-      ? (p.holdersRevenue24h as number) / (p.revenue24h as number)
+      ? (p.holdersRevenue30d as number) / (p.revenue30d as number)
       : null;
 
     return { protocol: p, passthrough };
@@ -24,7 +24,7 @@ export function PassthroughCompare({ protocols }: { protocols: ProtocolFinancial
   return (
     <section className="border-b border-rule p-6">
       <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-soft">
-        Cât ajunge la deținători
+        Cât ajunge la deținători · ultimele 30 de zile
       </div>
       <p className="mb-6 max-w-[44ch] font-serif text-[19px] leading-[1.4]">
         Aceeași întrebare pentru fiecare: din banii reținuți de protocol, cât se întoarce
@@ -59,7 +59,7 @@ export function PassthroughCompare({ protocols }: { protocols: ProtocolFinancial
             <dd>
               {passthrough === null
                 ? "nu avem defalcarea venitului către deținători pentru acest protocol."
-                : `din ${formatUsdCompact(protocol.revenue24h as number)} venit reținut în 24h, ${formatUsdCompact(protocol.holdersRevenue24h as number)} ajung la deținători.`}
+                : `din ${formatUsdCompact(protocol.revenue30d as number)} venit reținut în 30 de zile, ${formatUsdCompact(protocol.holdersRevenue30d as number)} ajung la deținători.`}
             </dd>
           </div>
         ))}

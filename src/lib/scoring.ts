@@ -1,5 +1,5 @@
 import type { ProtocolFinancials } from "./protocols";
-import { formatMultiplier, formatScore } from "./format";
+import { formatMultiplier, formatScore, formatUsdCompact } from "./format";
 
 // Regula 8 (AGENTS.md): fiecare funcție de scoring întoarce { pts, max, note }.
 // `note` e explicația în română afișată utilizatorului — inclusiv numerele
@@ -36,14 +36,23 @@ export function percentile(value: number, universe: number[]): number | null {
  * ci eticheta "Date insuficiente".
  */
 export function hasSufficientData(protocol: ProtocolFinancials): boolean {
-  return protocol.revenue24h !== null || protocol.fees24h !== null;
+  return (
+    protocol.revenue30d !== null ||
+    protocol.revenue24h !== null ||
+    protocol.fees30d !== null ||
+    protocol.fees24h !== null
+  );
 }
 
+// Toate dimensiunile folosesc fereastra de 30 de zile, aceeași cu cea afișată
+// în interfață: o singură zi poate fi un vârf întâmplător, iar percentilele
+// calculate pe alt interval decât cel afișat ar fi imposibil de verificat de
+// către utilizator.
 export function scoreQuality(
   protocol: ProtocolFinancials,
   universe: ProtocolFinancials[]
 ): ScoreResult {
-  if (protocol.revenue24h === null) {
+  if (protocol.revenue30d === null) {
     return {
       pts: null,
       max: MAX_PTS,
@@ -52,9 +61,9 @@ export function scoreQuality(
   }
 
   const revenueUniverse = universe
-    .map((p) => p.revenue24h)
+    .map((p) => p.revenue30d)
     .filter((v): v is number => v !== null);
-  const scalePts = percentile(protocol.revenue24h, revenueUniverse);
+  const scalePts = percentile(protocol.revenue30d, revenueUniverse);
 
   let trendPts: number | null = null;
   let trendRatio: number | null = null;
@@ -97,14 +106,14 @@ export function scoreEconomics(
   protocol: ProtocolFinancials,
   universe: ProtocolFinancials[]
 ): ScoreResult {
-  if (protocol.revenue24h === null || protocol.revenue24h <= 0) {
+  if (protocol.revenue30d === null || protocol.revenue30d <= 0) {
     return {
       pts: null,
       max: MAX_PTS,
       note: "Nu avem venit reținut de protocol verificabil, deci nu putem calcula procentul care ajunge la deținători.",
     };
   }
-  if (protocol.holdersRevenue24h === null) {
+  if (protocol.holdersRevenue30d === null) {
     return {
       pts: null,
       max: MAX_PTS,
@@ -112,10 +121,10 @@ export function scoreEconomics(
     };
   }
 
-  const passthrough = protocol.holdersRevenue24h / protocol.revenue24h;
+  const passthrough = protocol.holdersRevenue30d / protocol.revenue30d;
   const passthroughUniverse = universe
-    .filter((p) => p.revenue24h !== null && p.revenue24h > 0 && p.holdersRevenue24h !== null)
-    .map((p) => (p.holdersRevenue24h as number) / (p.revenue24h as number));
+    .filter((p) => p.revenue30d !== null && p.revenue30d > 0 && p.holdersRevenue30d !== null)
+    .map((p) => (p.holdersRevenue30d as number) / (p.revenue30d as number));
 
   const pts = percentile(passthrough, passthroughUniverse);
   const passthroughPct = formatScore(passthrough * 100);
@@ -179,7 +188,11 @@ export function scoreValuation(
   return {
     pts,
     max: MAX_PTS,
-    note: `Capitalizarea e de ${psLabel} venitul anualizat — mai ieftin decât ${formatScore(pts)}% dintre protocoalele urmărite.`,
+    // Punem cifra venitului anualizat în text ca utilizatorul să poată
+    // reface calculul: fără ea, P/S-ul pare că nu se potrivește cu venitul
+    // pe 30 de zile afișat mai sus, iar un P/S de neverificat e cea mai
+    // ușor de contestat cifră din tot produsul.
+    note: `Capitalizare ${formatUsdCompact(protocol.mcap)} împărțită la venitul ultimelor 12 luni (${formatUsdCompact(protocol.revenueAnnualized)}) dă ${psLabel} — mai ieftin decât ${formatScore(pts)}% dintre protocoalele urmărite.`,
   };
 }
 

@@ -50,19 +50,19 @@ export function CompareGrid({
 
   const rawRows = [
     {
-      label: "Venit reținut, 24h",
+      label: "Venit reținut, 30 de zile",
       pick: (p: ProtocolFinancials) =>
-        p.revenue24h !== null ? formatUsdCompact(p.revenue24h) : "—",
+        p.revenue30d !== null ? formatUsdCompact(p.revenue30d) : "—",
     },
     {
-      label: "Ajunge la deținători, 24h",
+      label: "Ajunge la deținători, 30 de zile",
       pick: (p: ProtocolFinancials) =>
-        p.holdersRevenue24h !== null ? formatUsdCompact(p.holdersRevenue24h) : "—",
+        p.holdersRevenue30d !== null ? formatUsdCompact(p.holdersRevenue30d) : "—",
     },
     {
-      label: "Fee-uri plătite de utilizatori, 24h",
+      label: "Fee-uri plătite de utilizatori, 30 de zile",
       pick: (p: ProtocolFinancials) =>
-        p.fees24h !== null ? formatUsdCompact(p.fees24h) : "—",
+        p.fees30d !== null ? formatUsdCompact(p.fees30d) : "—",
     },
     {
       label: "Capitalizare",

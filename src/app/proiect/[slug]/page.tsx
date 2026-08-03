@@ -79,9 +79,13 @@ function ScoredProtocol({
   const risk = scoreRisk(protocol, universe);
   const flags = riskFlags(protocol, universe);
 
+  // Passthrough pe 30 de zile, aceeași fereastră ca fluxul „Unde ajung banii"
+  // și ca lista de pe prima pagină — o singură zi poate fi un vârf întâmplător.
   const passthrough =
-    protocol.revenue24h !== null && protocol.revenue24h > 0 && protocol.holdersRevenue24h !== null
-      ? protocol.holdersRevenue24h / protocol.revenue24h
+    protocol.revenue30d !== null &&
+    protocol.revenue30d > 0 &&
+    protocol.holdersRevenue30d !== null
+      ? protocol.holdersRevenue30d / protocol.revenue30d
       : null;
 
   const priceToSales =
@@ -104,6 +108,13 @@ function ScoredProtocol({
             {protocol.components.length > 0 && (
               <div className="mt-1.5 max-w-[46ch] text-[12px] text-ink-soft">
                 Cifrele însumează {protocol.components.join(", ")}.
+              </div>
+            )}
+            {protocol.symbol === null && (
+              <div className="mt-1.5 max-w-[46ch] text-[12px] text-ink-soft">
+                <strong className="font-medium text-ink">Nu are token public.</strong>{" "}
+                Produce venit real, dar nu există un token pe care să-l poți deține, deci
+                întrebările despre evaluare și transfer către deținători nu i se aplică.
               </div>
             )}
           </div>
@@ -130,24 +141,24 @@ function ScoredProtocol({
 
       <RiskNotice flags={flags} />
 
-      {protocol.revenue24h !== null && protocol.holdersRevenue24h !== null && (
+      {protocol.revenue30d !== null && protocol.holdersRevenue30d !== null && (
         <FlowSection
-          revenue24h={protocol.revenue24h}
-          holdersRevenue24h={protocol.holdersRevenue24h}
+          revenue30d={protocol.revenue30d}
+          holdersRevenue30d={protocol.holdersRevenue30d}
         />
       )}
 
       <MeasuresList
         measures={[
           {
-            label: "Venit protocol, 24h",
+            label: "Venit reținut de protocol, 30 de zile",
             valueLabel:
-              protocol.revenue24h !== null ? formatUsdCompact(protocol.revenue24h) : "—",
+              protocol.revenue30d !== null ? formatUsdCompact(protocol.revenue30d) : "—",
             pts: quality.pts,
             note: quality.note,
           },
           {
-            label: "Transfer către deținători",
+            label: "Transfer către deținători, 30 de zile",
             valueLabel: passthrough !== null ? formatPercent(passthrough) : "—",
             pts: economics.pts,
             note: economics.note,

@@ -78,7 +78,10 @@ export async function fetchProtocols(): Promise<DefiLlamaProtocolListItem[]> {
   return raw.map((p) => ({
     name: p.name,
     slug: p.slug,
-    symbol: p.symbol ?? null,
+    // DefiLlama pune "-" la protocoalele fără token public (Tether, Circle,
+    // Polymarket). Normalizăm la null ca absența să fie verificabilă în cod,
+    // nu un șir magic răspândit prin interfață.
+    symbol: p.symbol && p.symbol !== "-" ? p.symbol : null,
     category: p.category ?? null,
     chains: p.chains ?? [],
     tvl: p.tvl ?? null,

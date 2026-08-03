@@ -22,14 +22,16 @@ export interface ProtocolFinancials {
   listedAt: number | null;
   /** Total fee-uri plătite de utilizatori (regula 3.4: fees ≠ revenue). */
   fees24h: number | null;
+  fees30d: number | null;
   /** Venit reținut de protocol. */
   revenue24h: number | null;
   revenue7d: number | null;
   revenue30d: number | null;
-  /** Venitul zilnic anualizat pe baza ultimului an — pentru P/S. */
+  /** Venitul ultimului an, raportat de DefiLlama — pentru P/S. */
   revenueAnnualized: number | null;
   /** Venit care ajunge efectiv la deținătorii de token (passthrough real). */
   holdersRevenue24h: number | null;
+  holdersRevenue30d: number | null;
   /**
    * Versiunile însumate în această intrare (ex. Uniswap V2, V3, V4).
    * Gol pentru proiectele fără versiuni separate.
@@ -78,11 +80,13 @@ export interface RawProtocolRow {
   tvl: number | null;
   mcap: number | null;
   fees24h: number | null;
+  fees30d: number | null;
   revenue24h: number | null;
   revenue7d: number | null;
   revenue30d: number | null;
   revenueAnnualized: number | null;
   holdersRevenue24h: number | null;
+  holdersRevenue30d: number | null;
 }
 
 async function fetchAllRaw() {
@@ -124,11 +128,13 @@ async function fetchAllRaw() {
       tvl: listEntry?.tvl ?? null,
       mcap: listEntry?.mcap ?? null,
       fees24h: feesEntry?.total24h ?? null,
+      fees30d: feesEntry?.total30d ?? null,
       revenue24h: revenueEntry?.total24h ?? null,
       revenue7d: revenueEntry?.total7d ?? null,
       revenue30d: revenueEntry?.total30d ?? null,
       revenueAnnualized: revenueEntry?.annualized1y ?? null,
       holdersRevenue24h: holdersEntry?.total24h ?? null,
+      holdersRevenue30d: holdersEntry?.total30d ?? null,
     };
   });
 
@@ -158,11 +164,13 @@ export async function getRawProtocolRows(): Promise<RawProtocolRow[]> {
     tvl: p.tvl,
     mcap: p.mcap,
     fees24h: p.fees24h,
+    fees30d: p.fees30d,
     revenue24h: p.revenue24h,
     revenue7d: p.revenue7d,
     revenue30d: p.revenue30d,
     revenueAnnualized: p.revenueAnnualized,
     holdersRevenue24h: p.holdersRevenue24h,
+    holdersRevenue30d: p.holdersRevenue30d,
   }));
 }
 
@@ -247,11 +255,13 @@ export async function getProtocolUniverse(): Promise<ProtocolUniverse> {
         // Cea mai veche dată de listare din grup = de când e urmărit proiectul.
         listedAt: minOrNull(members.map((m) => m.listEntry?.listedAt ?? null)),
         fees24h: sumOrNull(members.map((m) => m.fees24h)),
+        fees30d: sumOrNull(members.map((m) => m.fees30d)),
         revenue24h: sumOrNull(members.map((m) => m.revenue24h)),
         revenue7d: sumOrNull(members.map((m) => m.revenue7d)),
         revenue30d: sumOrNull(members.map((m) => m.revenue30d)),
         revenueAnnualized: sumOrNull(members.map((m) => m.revenueAnnualized)),
         holdersRevenue24h: sumOrNull(members.map((m) => m.holdersRevenue24h)),
+        holdersRevenue30d: sumOrNull(members.map((m) => m.holdersRevenue30d)),
         components: members.length > 1 ? members.map((m) => m.name).sort() : [],
       },
     };

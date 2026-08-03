@@ -115,6 +115,22 @@ alături.
 - Valuation → logaritmic pe P/S, fără salturi bruște
 - Tendință → liniar pe raportul (medie 7 zile / medie 30 zile)
 
+**Fereastra de timp e 30 de zile, peste tot.** O singură zi poate fi un vârf
+întâmplător, iar cifra asta susține toată teza produsului. Regula are două părți:
+
+1. Fereastra se scrie **explicit în fiecare etichetă** („Venit reținut, 30 de zile").
+   Un „777 mii$" fără interval nu înseamnă nimic — utilizatorul nu poate ști dacă e
+   pe zi, pe lună sau total.
+2. Percentila se calculează pe **aceeași fereastră care se afișează**. Altfel scorul
+   devine imposibil de verificat de către cel care citește pagina.
+
+Singura excepție e **P/S**, care folosește venitul real al ultimelor 12 luni raportat
+de DefiLlama (`annualized1y`), nu venitul pe 30 de zile înmulțit cu 12. Motivul:
+extrapolarea unei luni bune face P/S-ul să sară violent de la o zi la alta. Pentru că
+excepția e reală și derutantă, nota afișată arată explicit ambii termeni ai împărțirii
+(„Capitalizare X împărțită la venitul ultimelor 12 luni (Y) dă Z×"), ca cifra să poată
+fi refăcută de oricine.
+
 ### 4.4 Flag de risc pentru proiecte noi/mici
 Nu detectăm clone la nivel de cod (ar cere analiză de bytecode — alt produs).
 Folosim semnale de piață. Dacă bifează 2+ din:

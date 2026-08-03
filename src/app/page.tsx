@@ -43,15 +43,16 @@ export default async function Home() {
             <p className="max-w-[52ch] text-[13px] text-ink-soft">
               Protocoalele cu cel mai mare venit reținut în ultimele 30 de zile. Nu e un
               clasament al celor mai bune investiții — e doar punctul de plecare, ordonat
-              după cât produc, nu după cât valorează.
+              după cât produc, nu după cât valorează. Unele produc mult, dar nu au un token
+              pe care să-l poți deține.
             </p>
           </div>
 
           <ul>
             {topByRevenue.map((p, i) => {
               const passthrough =
-                p.revenue24h !== null && p.revenue24h > 0 && p.holdersRevenue24h !== null
-                  ? p.holdersRevenue24h / p.revenue24h
+                p.revenue30d !== null && p.revenue30d > 0 && p.holdersRevenue30d !== null
+                  ? p.holdersRevenue30d / p.revenue30d
                   : null;
 
               return (
@@ -63,8 +64,13 @@ export default async function Home() {
                     <span className="w-5 flex-none font-mono text-[11px] text-absent">
                       {i + 1}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-[14px] font-medium">
-                      {p.name}
+                    <span className="flex min-w-0 flex-1 items-baseline gap-2">
+                      <span className="truncate text-[14px] font-medium">{p.name}</span>
+                      {p.symbol === null && (
+                        <span className="flex-none whitespace-nowrap border border-rule px-1.5 py-0.5 font-mono text-[9.5px] uppercase tracking-wide text-absent">
+                          fără token
+                        </span>
+                      )}
                     </span>
                     <span className="flex-none font-mono text-[12.5px] text-ink-soft">
                       {formatUsdCompact(p.revenue30d as number)}
