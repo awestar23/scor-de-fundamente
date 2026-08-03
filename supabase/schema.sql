@@ -37,10 +37,22 @@ create index if not exists protocol_snapshots_slug_idx
 create index if not exists protocol_snapshots_date_idx
   on protocol_snapshots (snapshot_date);
 
--- RLS: citire publică (pagina de rezultate va citi direct din Supabase),
--- scriere doar din service role (job-ul de snapshot), care oricum ocolește RLS.
+-- Drepturi pentru rolul cu care scrie job-ul de snapshot.
+--
+-- Necesare pentru că proiectul are „Automatically expose new tables"
+-- dezactivat (recomandarea Supabase): fără setarea aia, un tabel nou nu
+-- primește automat drepturi pentru rolurile API — nici măcar service_role,
+-- deși acesta ocolește RLS. Fără aceste granturi: „permission denied".
+grant usage on schema public to service_role;
+grant select, insert, update on table protocol_snapshots to service_role;
+
+-- RLS rămâne activ. service_role îl ocolește oricum; contează pentru rolurile
+-- publice, dacă vom expune vreodată citirea direct către browser.
 alter table protocol_snapshots enable row level security;
 
+-- Politica de citire publică e pregătită, dar inertă deocamdată: fără un
+-- `grant ... to anon`, rolurile publice n-au acces la tabel. O activăm
+-- deliberat când construim pagina de istoric (faza 3, punctul 9).
 drop policy if exists "protocol_snapshots_public_read" on protocol_snapshots;
 create policy "protocol_snapshots_public_read"
   on protocol_snapshots

@@ -4,9 +4,16 @@
 // Regula 3.2 (AGENTS.md): salvăm DATE BRUTE, niciodată doar scorul —
 // formula de scoring se poate schimba oricând și se re-aplică pe istoric.
 
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
 import { getRawProtocolRows } from "../src/lib/protocols";
 import { getSupabaseServiceClient } from "../src/lib/supabase";
+
+// Next.js citește `.env.local` singur, dar acest script rulează standalone
+// (tsx), iar dotenv se uită implicit doar în `.env`. Le încărcăm pe ambele,
+// în ordinea de precedență din Next. Fișierele lipsă sunt ignorate tăcut,
+// deci în GitHub Actions — unde valorile vin din secrets — nu se schimbă nimic.
+loadEnv({ path: ".env.local" });
+loadEnv({ path: ".env" });
 
 const BATCH_SIZE = 200;
 
