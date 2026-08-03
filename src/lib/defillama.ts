@@ -1,6 +1,24 @@
 const DEFILLAMA_BASE_URL = "https://api.llama.fi";
 
-export type FeesDataType = "dailyRevenue" | "dailyHoldersRevenue";
+export type FeesDataType =
+  | "dailyRevenue"
+  | "dailyHoldersRevenue"
+  /** Partea care merge către furnizorii de lichiditate, stakeri, mineri. */
+  | "dailySupplySideRevenue";
+
+/**
+ * Explicația DefiLlama pentru ce înseamnă fiecare categorie la protocolul
+ * respectiv. Diferă de la un protocol la altul și e singura sursă care spune
+ * concret unde se duc banii — de aceea o afișăm ca atare, citată.
+ */
+export interface DefiLlamaMethodology {
+  Fees?: string;
+  UserFees?: string;
+  Revenue?: string;
+  ProtocolRevenue?: string;
+  HoldersRevenue?: string;
+  SupplySideRevenue?: string;
+}
 
 export interface DefiLlamaProtocolListItem {
   name: string;
@@ -47,6 +65,8 @@ export interface DefiLlamaFeesOverviewItem {
   total30d: number | null;
   /** Venitul pe 24h anualizat pe baza ultimului an — folosit pentru P/S. */
   annualized1y: number | null;
+  /** Vine în răspunsul în bloc, deci nu costă o cerere în plus. */
+  methodology: DefiLlamaMethodology | null;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -160,6 +180,7 @@ export async function fetchFeesOverview(
       total7d?: number | null;
       total30d?: number | null;
       annualized1y?: number | null;
+      methodology?: DefiLlamaMethodology | null;
     }>;
   }>(`${DEFILLAMA_BASE_URL}/overview/fees${query}`);
 
@@ -170,5 +191,6 @@ export async function fetchFeesOverview(
     total7d: p.total7d ?? null,
     total30d: p.total30d ?? null,
     annualized1y: p.annualized1y ?? null,
+    methodology: p.methodology ?? null,
   }));
 }

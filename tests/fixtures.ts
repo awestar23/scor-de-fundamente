@@ -25,6 +25,8 @@ export function makeProtocol(
     revenueAnnualized: null,
     holdersRevenue24h: null,
     holdersRevenue30d: null,
+    supplySideRevenue30d: null,
+    methodology: null,
     components: [],
     ...overrides,
   };

@@ -3,6 +3,7 @@ import {
   fetchFeesOverview,
   fetchProtocols,
   type DefiLlamaFeesOverviewItem,
+  type DefiLlamaMethodology,
   type DefiLlamaProtocolListItem,
 } from "./defillama";
 import { fetchMarkets } from "./coingecko";
@@ -32,6 +33,14 @@ export interface ProtocolFinancials {
   /** Venit care ajunge efectiv la deținătorii de token (passthrough real). */
   holdersRevenue24h: number | null;
   holdersRevenue30d: number | null;
+  /**
+   * Partea din comisioane care merge către cei care aduc lichiditate sau
+   * capital (stakeri, LP-uri, mineri) — nu către protocol și nu către
+   * deținătorii de token. La Ethena e aproape tot: 13,89 M$ din 13,92 M$.
+   */
+  supplySideRevenue30d: number | null;
+  /** Explicația DefiLlama pentru acest protocol, citată ca atare. */
+  methodology: DefiLlamaMethodology | null;
   /**
    * Versiunile însumate în această intrare (ex. Uniswap V2, V3, V4).
    * Gol pentru proiectele fără versiuni separate.
@@ -124,19 +133,22 @@ function withChainTokenFallback(
 }
 
 async function fetchAllRaw() {
-  const [protocols, config, fees, revenue, holdersRevenue] = await Promise.all([
-    fetchProtocols(),
-    fetchConfig(),
-    fetchFeesOverview(undefined),
-    fetchFeesOverview("dailyRevenue"),
-    fetchFeesOverview("dailyHoldersRevenue"),
-  ]);
+  const [protocols, config, fees, revenue, holdersRevenue, supplySide] =
+    await Promise.all([
+      fetchProtocols(),
+      fetchConfig(),
+      fetchFeesOverview(undefined),
+      fetchFeesOverview("dailyRevenue"),
+      fetchFeesOverview("dailyHoldersRevenue"),
+      fetchFeesOverview("dailySupplySideRevenue"),
+    ]);
 
   const protocolsBySlug = new Map(protocols.map((p) => [p.slug, p]));
   const parentsById = new Map(config.parents.map((p) => [p.id, p]));
   const feesBySlug = toMap(fees);
   const revenueBySlug = toMap(revenue);
   const holdersRevenueBySlug = toMap(holdersRevenue);
+  const supplySideBySlug = toMap(supplySide);
 
   const feeTrackedSlugs = new Set<string>([
     ...feesBySlug.keys(),
@@ -149,6 +161,7 @@ async function fetchAllRaw() {
     const feesEntry = feesBySlug.get(slug);
     const revenueEntry = revenueBySlug.get(slug);
     const holdersEntry = holdersRevenueBySlug.get(slug);
+    const supplyEntry = supplySideBySlug.get(slug);
 
     const listEntry = rawListEntry
       ? withChainTokenFallback(rawListEntry, config.chainTokens)
@@ -173,6 +186,13 @@ async function fetchAllRaw() {
       revenueAnnualized: revenueEntry?.annualized1y ?? null,
       holdersRevenue24h: holdersEntry?.total24h ?? null,
       holdersRevenue30d: holdersEntry?.total30d ?? null,
+      supplySideRevenue30d: supplyEntry?.total30d ?? null,
+      // Metodologia e aceeași indiferent de dataType; o luăm de unde există.
+      methodology:
+        feesEntry?.methodology ??
+        revenueEntry?.methodology ??
+        holdersEntry?.methodology ??
+        null,
     };
   });
 
@@ -300,6 +320,8 @@ export async function getProtocolUniverse(): Promise<ProtocolUniverse> {
         revenueAnnualized: sumOrNull(members.map((m) => m.revenueAnnualized)),
         holdersRevenue24h: sumOrNull(members.map((m) => m.holdersRevenue24h)),
         holdersRevenue30d: sumOrNull(members.map((m) => m.holdersRevenue30d)),
+        supplySideRevenue30d: sumOrNull(members.map((m) => m.supplySideRevenue30d)),
+        methodology: lead.methodology,
         components: members.length > 1 ? members.map((m) => m.name).sort() : [],
       },
     };

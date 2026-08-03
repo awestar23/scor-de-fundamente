@@ -146,6 +146,8 @@ function ScoredProtocol({
           fees30d={protocol.fees30d}
           revenue30d={protocol.revenue30d}
           holdersRevenue30d={protocol.holdersRevenue30d}
+          supplySideRevenue30d={protocol.supplySideRevenue30d}
+          supplySideExplanation={protocol.methodology?.SupplySideRevenue ?? null}
         />
       )}
 

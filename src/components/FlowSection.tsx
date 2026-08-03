@@ -17,14 +17,23 @@ export function FlowSection({
   fees30d,
   revenue30d,
   holdersRevenue30d,
+  supplySideRevenue30d,
+  supplySideExplanation,
 }: {
   fees30d: number | null;
   revenue30d: number;
   holdersRevenue30d: number | null;
+  supplySideRevenue30d: number | null;
+  /** Explicația DefiLlama pentru unde se duce partea din afara protocolului. */
+  supplySideExplanation: string | null;
 }) {
   const retention = fees30d !== null && fees30d > 0 ? revenue30d / fees30d : null;
   const passthrough =
     holdersRevenue30d !== null && revenue30d > 0 ? holdersRevenue30d / revenue30d : null;
+  const toSupplySide =
+    fees30d !== null && fees30d > 0 && supplySideRevenue30d !== null
+      ? supplySideRevenue30d / fees30d
+      : null;
 
   return (
     <section className="border-b border-rule bg-gradient-to-b from-[#f4f8f7] to-sheet p-6">
@@ -47,8 +56,15 @@ export function FlowSection({
                 <strong className="font-semibold text-flow">
                   {formatPercentVisible(retention)}
                 </strong>{" "}
-                reținut de protocol · {formatUsdCompact(fees30d - revenue30d)} merg către
-                furnizorii de lichiditate, mineri sau validatori
+                reținut de protocol
+                {supplySideRevenue30d !== null && toSupplySide !== null && (
+                  <>
+                    {" · "}
+                    {formatUsdCompact(supplySideRevenue30d)} (
+                    {formatPercentVisible(toSupplySide)}) merg către cei care aduc
+                    lichiditate sau capital
+                  </>
+                )}
               </>
             ) : (
               <>partea reținută de protocol nu poate fi calculată</>
@@ -108,11 +124,20 @@ export function FlowSection({
         </>
       )}
 
-      <p className="mt-[18px] max-w-[58ch] border-t border-rule pt-4 text-[13px] text-ink-soft">
-        {passthrough !== null
-          ? `Din venitul reținut de protocol în ultimele 30 de zile, ${formatPercent(passthrough)} ajunge efectiv la deținătorii de token. Nu toate protocoalele funcționează așa — compară cu altele din aceeași categorie.`
-          : "Ultima treaptă lipsește: DefiLlama nu publică pentru acest proiect cât din venit ajunge la deținătorii de token. Nu înseamnă zero — înseamnă că nu se poate verifica."}
-      </p>
+      <div className="mt-[18px] max-w-[58ch] border-t border-rule pt-4 text-[13px] text-ink-soft">
+        <p>
+          {passthrough !== null
+            ? `Din venitul reținut de protocol în ultimele 30 de zile, ${formatPercent(passthrough)} ajunge efectiv la deținătorii de token. Nu toate protocoalele funcționează așa — compară cu altele din aceeași categorie.`
+            : "Ultima treaptă lipsește: DefiLlama nu publică pentru acest proiect cât din venit ajunge la deținătorii de token. Nu înseamnă zero — înseamnă că nu se poate verifica."}
+        </p>
+
+        {supplySideExplanation && (
+          <p className="mt-3">
+            Cum descrie DefiLlama destinația banilor la acest protocol:{" "}
+            <span className="italic">{`„${supplySideExplanation}”`}</span>
+          </p>
+        )}
+      </div>
     </section>
   );
 }
