@@ -60,6 +60,20 @@ export function scoreQuality(
     };
   }
 
+  // Un zero structural nu e un zero din declin. Bitcoin încasează fee-uri
+  // reale, dar nu reține nimic: banii merg integral la mineri. A-l pune pe
+  // aceeași scară cu un protocol care s-a stins ar da „Calitate 0,4/100"
+  // pentru Bitcoin — o cifră derivată corect, dar profund înșelătoare
+  // (regula 3.3: un scor mic dintr-o măsurătoare care nu se aplică e o
+  // minciună). Semnalul care le separă: fee-uri mari, venit zero.
+  if (protocol.revenue30d === 0 && protocol.fees30d !== null && protocol.fees30d > 0) {
+    return {
+      pts: null,
+      max: MAX_PTS,
+      note: `Utilizatorii au plătit ${formatUsdCompact(protocol.fees30d)} în comisioane în ultimele 30 de zile, dar protocolul nu reține nimic — banii merg direct către mineri, validatori sau furnizorii de lichiditate. Nu există venit de protocol pe care să-l putem evalua.`,
+    };
+  }
+
   const revenueUniverse = universe
     .map((p) => p.revenue30d)
     .filter((v): v is number => v !== null);
@@ -106,6 +120,13 @@ export function scoreEconomics(
   protocol: ProtocolFinancials,
   universe: ProtocolFinancials[]
 ): ScoreResult {
+  if (protocol.revenue30d === 0 && protocol.fees30d !== null && protocol.fees30d > 0) {
+    return {
+      pts: null,
+      max: MAX_PTS,
+      note: "Protocolul nu reține venit din comisioane, deci nu există nimic de transferat către deținători. Nu e o valoare mică — întrebarea nu i se aplică.",
+    };
+  }
   if (protocol.revenue30d === null || protocol.revenue30d <= 0) {
     return {
       pts: null,
