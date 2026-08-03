@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --ground: #e8edec;
+  --sheet: #fbfcfc;
+  --ink: #0f1e1d;
+  --ink-soft: #5c6c6a;
+  --rule: #cfd9d7;
+  --flow: #0e7c7b;
+  --flow-pale: #b9d6d5;
+  --flag: #a8641c;
+  --absent: #97a3a1;
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-flow: var(--flow);
+  --color-flow-pale: var(--flow-pale);
+  --color-flag: var(--flag);
+  --color-absent: var(--absent);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+}

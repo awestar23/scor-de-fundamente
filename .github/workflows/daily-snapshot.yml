@@ -1,0 +1,28 @@
+name: Daily snapshot
+
+# Regula 3.2 (AGENTS.md): fiecare zi fără acest job e o zi de istoric
+# pierdută definitiv — de asta rulează separat de deploy-ul aplicației.
+
+on:
+  schedule:
+    # 03:00 UTC — după ce se resetează ferestrele "24h" ale DefiLlama.
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run snapshot
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
