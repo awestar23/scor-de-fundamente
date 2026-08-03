@@ -1,8 +1,11 @@
 import type { ProtocolFinancials } from "./protocols";
+import { formatMultiplier, formatScore } from "./format";
 
 // Regula 8 (AGENTS.md): fiecare funcție de scoring întoarce { pts, max, note }.
-// `note` e explicația în română afișată utilizatorului. `pts` e null când nu
-// există destule date — nu se inventează o valoare implicită (regula 3.3).
+// `note` e explicația în română afișată utilizatorului — inclusiv numerele
+// din ea folosesc separatorul românesc (virgulă), prin format.ts.
+// `pts` e null când nu există destule date — nu se inventează o valoare
+// implicită (regula 3.3).
 export interface ScoreResult {
   pts: number | null;
   max: number;
@@ -80,13 +83,13 @@ export function scoreQuality(
 
   const trendNote =
     trendRatio !== null
-      ? ` Tendința ultimelor 7 zile e ${trendRatio >= 1 ? "+" : ""}${Math.round((trendRatio - 1) * 1000) / 10}% față de media pe 30 de zile.`
+      ? ` Tendința ultimelor 7 zile e ${trendRatio >= 1 ? "+" : "-"}${formatScore(Math.abs((trendRatio - 1) * 100))}% față de media pe 30 de zile.`
       : "";
 
   return {
     pts,
     max: MAX_PTS,
-    note: `Venitul e peste ${scalePts}% dintre protocoalele urmărite.${trendNote}`,
+    note: `Venitul e peste ${formatScore(scalePts)}% dintre protocoalele urmărite.${trendNote}`,
   };
 }
 
@@ -115,7 +118,7 @@ export function scoreEconomics(
     .map((p) => (p.holdersRevenue24h as number) / (p.revenue24h as number));
 
   const pts = percentile(passthrough, passthroughUniverse);
-  const passthroughPct = Math.round(passthrough * 1000) / 10;
+  const passthroughPct = formatScore(passthrough * 100);
 
   if (pts === null) {
     return {
@@ -128,7 +131,7 @@ export function scoreEconomics(
   return {
     pts,
     max: MAX_PTS,
-    note: `${passthroughPct}% din venitul reținut de protocol ajunge efectiv la deținătorii de token — peste ${pts}% dintre protocoalele urmărite.`,
+    note: `${passthroughPct}% din venitul reținut de protocol ajunge efectiv la deținătorii de token — peste ${formatScore(pts)}% dintre protocoalele urmărite.`,
   };
 }
 
@@ -163,20 +166,20 @@ export function scoreValuation(
     .map((p) => -Math.log((p.mcap as number) / (p.revenueAnnualized as number)));
 
   const pts = percentile(cheapness, cheapnessUniverse);
-  const psRounded = Math.round(ps * 10) / 10;
+  const psLabel = formatMultiplier(ps);
 
   if (pts === null) {
     return {
       pts: null,
       max: MAX_PTS,
-      note: `Capitalizarea e de ${psRounded}× venitul anualizat, dar universul de comparație e prea mic pentru o percentilă fiabilă.`,
+      note: `Capitalizarea e de ${psLabel} venitul anualizat, dar universul de comparație e prea mic pentru o percentilă fiabilă.`,
     };
   }
 
   return {
     pts,
     max: MAX_PTS,
-    note: `Capitalizarea e de ${psRounded}× venitul anualizat — mai ieftin decât ${pts}% dintre protocoalele urmărite.`,
+    note: `Capitalizarea e de ${psLabel} venitul anualizat — mai ieftin decât ${formatScore(pts)}% dintre protocoalele urmărite.`,
   };
 }
 
@@ -269,10 +272,12 @@ export function scoreRisk(
     const days = Math.round(daysSince(protocol.listedAt));
 
     if (agePts !== null) parts.push(agePts);
+    // Gramatică: „19 zile", dar „20 de zile" — numeralele sub 20 nu primesc „de".
+    const daysLabel = days < 20 ? `${days} zile` : `${days} de zile`;
     notes.push(
       days < NEW_PROJECT_DAYS
-        ? `Urmărit public de doar ${days} de zile.`
-        : `Urmărit public de ${days} de zile.`
+        ? `Urmărit public de doar ${daysLabel}.`
+        : `Urmărit public de ${daysLabel}.`
     );
   }
 
@@ -283,7 +288,7 @@ export function scoreRisk(
     const scalePts = percentile(protocol.mcap, mcapUniverse);
     if (scalePts !== null) {
       parts.push(scalePts);
-      notes.push(`Capitalizarea e peste ${scalePts}% dintre proiectele măsurate.`);
+      notes.push(`Capitalizarea e peste ${formatScore(scalePts)}% dintre proiectele măsurate.`);
     }
   }
 
@@ -298,7 +303,7 @@ export function scoreRisk(
 
     const circulating = Math.round((1 / ratio) * 100);
     notes.push(
-      `În circulație e ${circulating}% din supply-ul total (FDV de ${Math.round(ratio * 10) / 10}× capitalizarea).`
+      `În circulație e ${circulating}% din supply-ul total (FDV de ${formatMultiplier(ratio)} capitalizarea).`
     );
   }
 
