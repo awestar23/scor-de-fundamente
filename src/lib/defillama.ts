@@ -18,6 +18,12 @@ export interface DefiLlamaProtocolListItem {
   listedAt: number | null;
 }
 
+/** Token-ul nativ al unui lanț (Ethereum → ETH), din `/config`. */
+export interface DefiLlamaChainToken {
+  geckoId: string | null;
+  symbol: string | null;
+}
+
 /** Proiectul-umbrelă sub care stau mai multe versiuni (Uniswap ← V2, V3, V4). */
 export interface DefiLlamaParentProtocol {
   /** ex. "parent#uniswap" */
@@ -97,7 +103,11 @@ export async function fetchProtocols(): Promise<DefiLlamaProtocolListItem[]> {
  * într-o singură cerere. Necesară pentru a arăta „Uniswap", nu „Uniswap V2",
  * „Uniswap V3" și „Uniswap V4" ca trei proiecte separate.
  */
-export async function fetchParentProtocols(): Promise<DefiLlamaParentProtocol[]> {
+export async function fetchConfig(): Promise<{
+  parents: DefiLlamaParentProtocol[];
+  /** Cheia e numele exact al lanțului, așa cum îl scrie DefiLlama. */
+  chainTokens: Map<string, DefiLlamaChainToken>;
+}> {
   const raw = await fetchJson<{
     parentProtocols?: Array<{
       id: string;
@@ -105,15 +115,30 @@ export async function fetchParentProtocols(): Promise<DefiLlamaParentProtocol[]>
       symbol?: string | null;
       gecko_id?: string | null;
     }>;
+    chainCoingeckoIds?: Record<
+      string,
+      { geckoId?: string | null; symbol?: string | null }
+    >;
   }>(`${DEFILLAMA_BASE_URL}/config`);
 
-  return (raw.parentProtocols ?? []).map((p) => ({
+  const parents = (raw.parentProtocols ?? []).map((p) => ({
     id: p.id,
     name: p.name,
     // DefiLlama pune "-" pentru proiectele fără token propriu.
     symbol: p.symbol && p.symbol !== "-" ? p.symbol : null,
     geckoId: p.gecko_id ?? null,
   }));
+
+  const chainTokens = new Map<string, DefiLlamaChainToken>();
+  for (const [chainName, entry] of Object.entries(raw.chainCoingeckoIds ?? {})) {
+    if (!entry?.geckoId) continue;
+    chainTokens.set(chainName, {
+      geckoId: entry.geckoId,
+      symbol: entry.symbol && entry.symbol !== "-" ? entry.symbol : null,
+    });
+  }
+
+  return { parents, chainTokens };
 }
 
 /**

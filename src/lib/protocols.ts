@@ -1,6 +1,6 @@
 import {
+  fetchConfig,
   fetchFeesOverview,
-  fetchParentProtocols,
   fetchProtocols,
   type DefiLlamaFeesOverviewItem,
   type DefiLlamaProtocolListItem,
@@ -89,17 +89,51 @@ export interface RawProtocolRow {
   holdersRevenue30d: number | null;
 }
 
+/**
+ * Completează token-ul nativ al unui lanț când `/protocols` nu-l raportează.
+ * Necesar fiindcă DefiLlama e inconsecvent aici: Bitcoin și Solana vin cu
+ * `gecko_id`, dar Ethereum vine cu `symbol: "-"` și `gecko_id: null`, deci
+ * ETH ar apărea ca proiect fără token și fără capitalizare.
+ *
+ * Trei garanții împotriva dezinformării, fiindcă a lipi capitalizarea unui
+ * token de alt proiect e cea mai gravă greșeală pe care o poate face produsul:
+ *
+ * 1. Doar `category === "Chain"` — protocolul trebuie să FIE lanțul. Fără asta,
+ *    un DEX numit „Cube" ar primi capitalizarea lanțului „Cube", iar „Katana"
+ *    (Options Vault) ar primi tokenul lanțului omonim.
+ * 2. Potrivire pe nume **exactă**, fără normalizare. „Ethereum",
+ *    „EthereumClassic" și „EthereumPoW" sunt chei distincte în DefiLlama, deci
+ *    ETC nu poate primi niciodată datele lui ETH.
+ * 3. Doar completăm ce lipsește — nu suprascriem niciodată o valoare existentă.
+ */
+function withChainTokenFallback(
+  entry: DefiLlamaProtocolListItem,
+  chainTokens: Map<string, { geckoId: string | null; symbol: string | null }>
+): DefiLlamaProtocolListItem {
+  if (entry.category !== "Chain") return entry;
+  if (entry.geckoId) return entry;
+
+  const token = chainTokens.get(entry.name);
+  if (!token?.geckoId) return entry;
+
+  return {
+    ...entry,
+    geckoId: token.geckoId,
+    symbol: entry.symbol ?? token.symbol,
+  };
+}
+
 async function fetchAllRaw() {
-  const [protocols, parents, fees, revenue, holdersRevenue] = await Promise.all([
+  const [protocols, config, fees, revenue, holdersRevenue] = await Promise.all([
     fetchProtocols(),
-    fetchParentProtocols(),
+    fetchConfig(),
     fetchFeesOverview(undefined),
     fetchFeesOverview("dailyRevenue"),
     fetchFeesOverview("dailyHoldersRevenue"),
   ]);
 
   const protocolsBySlug = new Map(protocols.map((p) => [p.slug, p]));
-  const parentsById = new Map(parents.map((p) => [p.id, p]));
+  const parentsById = new Map(config.parents.map((p) => [p.id, p]));
   const feesBySlug = toMap(fees);
   const revenueBySlug = toMap(revenue);
   const holdersRevenueBySlug = toMap(holdersRevenue);
@@ -111,10 +145,14 @@ async function fetchAllRaw() {
   ]);
 
   const perProtocol = Array.from(feeTrackedSlugs).map((slug) => {
-    const listEntry = protocolsBySlug.get(slug);
+    const rawListEntry = protocolsBySlug.get(slug);
     const feesEntry = feesBySlug.get(slug);
     const revenueEntry = revenueBySlug.get(slug);
     const holdersEntry = holdersRevenueBySlug.get(slug);
+
+    const listEntry = rawListEntry
+      ? withChainTokenFallback(rawListEntry, config.chainTokens)
+      : rawListEntry;
 
     return {
       slug,
