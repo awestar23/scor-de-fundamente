@@ -36,7 +36,14 @@ function baseUrl(): string {
   return process.env.COINGECKO_PRO_API_KEY ? PRO_BASE_URL : PUBLIC_BASE_URL;
 }
 
-async function fetchBatch(ids: string[]): Promise<RawMarket[]> {
+const MAX_ATTEMPTS = 3;
+const BASE_BACKOFF_MS = 600;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchBatchOnce(ids: string[]): Promise<RawMarket[]> {
   const url =
     `${baseUrl()}/coins/markets?vs_currency=usd&per_page=250&page=1&ids=` +
     encodeURIComponent(ids.join(","));
@@ -51,10 +58,45 @@ async function fetchBatch(ids: string[]): Promise<RawMarket[]> {
   });
 
   if (!res.ok) {
-    throw new Error(`CoinGecko a răspuns ${res.status} ${res.statusText}`);
+    const retryAfter = Number(res.headers.get("retry-after"));
+    const error = new Error(`CoinGecko a răspuns ${res.status} ${res.statusText}`);
+    // 429 (prea multe cereri) și 5xx sunt trecătoare — merită reîncercate.
+    // 4xx-urile rămase înseamnă o cerere greșită, pe care reîncercarea n-o repară.
+    Object.assign(error, {
+      retryable: res.status === 429 || res.status >= 500,
+      retryAfterMs: Number.isFinite(retryAfter) ? retryAfter * 1000 : null,
+    });
+    throw error;
   }
 
   return (await res.json()) as RawMarket[];
+}
+
+/**
+ * Reîncearcă loturile căzute din limitare de rată.
+ *
+ * Fără asta, un singur 429 lăsa proiectele din lotul respectiv fără
+ * capitalizare, iar rezultatul incomplet era memorat o oră întreagă — motiv
+ * pentru care Ethereum apărea corect pe pagină și fără capitalizare în API,
+ * simultan. CoinGecko limitează des cererile venite de pe IP-urile Vercel,
+ * fiindcă sunt partajate între mulți clienți.
+ */
+async function fetchBatch(ids: string[]): Promise<RawMarket[]> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fetchBatchOnce(ids);
+    } catch (error) {
+      lastError = error;
+      const meta = error as { retryable?: boolean; retryAfterMs?: number | null };
+      if (!meta.retryable || attempt === MAX_ATTEMPTS) break;
+
+      await sleep(meta.retryAfterMs ?? BASE_BACKOFF_MS * 2 ** (attempt - 1));
+    }
+  }
+
+  throw lastError;
 }
 
 /**
@@ -73,6 +115,10 @@ export async function fetchMarkets(
 
   for (let i = 0; i < unique.length; i += BATCH_SIZE) {
     const batch = unique.slice(i, i + BATCH_SIZE);
+
+    // Mică pauză între loturi: e mai ieftin decât să declanșăm limitarea și
+    // apoi să reîncercăm. Nu se aplică înaintea primului lot.
+    if (i > 0) await sleep(250);
 
     try {
       const raw = await fetchBatch(batch);
