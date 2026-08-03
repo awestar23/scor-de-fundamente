@@ -216,8 +216,9 @@ rămâne în faza 3.
 
 ### Faza 1 — Fundația (prioritate absolută)
 1. ✅ Setup Next.js + TypeScript + Tailwind
-2. ✅ Schema Supabase pentru snapshot-uri zilnice — *scrisă; proiectul Supabase încă nu există*
-3. ⏳ **Job-ul de snapshot zilnic** (GitHub Actions) — cod scris, **nu rulează încă**
+2. ✅ Schema Supabase pentru snapshot-uri zilnice — proiect creat, tabel populat
+3. ✅ **Job-ul de snapshot zilnic** (GitHub Actions) — **rulează**, zilnic la 03:00 UTC.
+   Prima zi logată: 3 august 2026, 2517 rânduri brute.
 4. ✅ Route API care preia și cache-uiește datele DefiLlama
 
 ### Faza 2 — Produsul vizibil
@@ -227,14 +228,22 @@ rămâne în faza 3.
 8. ✅ Comparație între 2–3 proiecte
 
 ### Faza 3 — Ce diferențiază (după validare)
-9. Istoricul scorului + „ce s-a schimbat" — **blocat până pornește punctul 3**
+9. Istoricul scorului + „ce s-a schimbat" — **deblocat**; istoricul se acumulează
+   din 3 august 2026. Are nevoie de câteva săptămâni de date ca să fie util.
 10. ✅ Semnale de risc: vechime, scară, diluție (concentrarea rămâne)
 11. Sursă secundară pentru **venituri** (CoinGecko acoperă deja capitalizarea)
 12. Conturi, watchlist, alerte
 
-⚠️ **Punctul 3 e singurul cu ceas.** Fiecare zi fără logare e o zi de istoric care nu se
-mai poate recupera niciodată, iar funcția 9 — cea mai valoroasă — depinde integral de el.
-Restul se poate construi oricând.
+✅ **Faza 1 e încheiată.** Punctul 3 era singurul cu termen ireversibil, fiindcă fiecare
+zi fără logare era istoric pierdut definitiv. Din 3 august 2026 rulează automat, deci
+funcția 9 — cea mai valoroasă — are pe ce se construi. Restul se poate face oricând.
+
+Note operaționale, ca să nu se redescopere greu:
+- Snapshot-ul are nevoie de **Node 22+** (`@supabase/supabase-js` cere WebSocket nativ).
+- Tabelul cere `grant` explicit către `service_role`, fiindcă proiectul are
+  „Automatically expose new tables" dezactivat.
+- Rularea din aceeași zi **suprascrie** rândurile zilei (unicitate pe
+  `protocol_slug + snapshot_date`), nu adaugă duplicate.
 
 ---
 
