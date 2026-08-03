@@ -36,8 +36,14 @@ async function main() {
     );
   }
 
+  // Trimis explicit: `default now()` se aplică doar la INSERT, iar upsert-ul
+  // din aceeași zi face UPDATE — fără asta n-am ști niciodată când a fost
+  // împrospătat ultima oară rândul.
+  const fetchedAt = new Date().toISOString();
+
   const rows = raw.map((p) => ({
     snapshot_date: snapshotDate,
+    fetched_at: fetchedAt,
     protocol_slug: p.slug,
     protocol_name: p.name,
     symbol: p.symbol,
