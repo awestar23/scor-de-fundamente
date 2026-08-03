@@ -9,9 +9,18 @@ on:
     - cron: "0 3 * * *"
   workflow_dispatch: {}
 
+# Dacă o rulare manuală se suprapune peste cea programată, o lăsăm pe cea
+# nouă să aștepte, nu s-o anulăm: fiecare rulare scrie o zi de istoric.
+concurrency:
+  group: daily-snapshot
+  cancel-in-progress: false
+
 jobs:
   snapshot:
     runs-on: ubuntu-latest
+    # Rularea normală durează ~2 minute. Dacă DefiLlama atârnă, oprim
+    # jobul în loc să consume minutele de Actions până la limita implicită.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
