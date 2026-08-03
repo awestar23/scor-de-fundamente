@@ -265,7 +265,9 @@ export function riskFlags(
   const isNew = protocol.listedAt !== null && daysSince(protocol.listedAt) < NEW_PROJECT_DAYS;
   const isVerySmall = mcapPercentile !== null && mcapPercentile < 25;
   const hasHighDilution = ratio !== null && ratio > HIGH_DILUTION_RATIO;
-  const lacksFeeTracking = protocol.revenue24h === null && protocol.fees24h === null;
+  // Aceeași fereastră ca restul scoringului (4.3). Verificarea pe 24h ar
+  // marca drept „fără fee-tracking" un protocol care are date pe 30 de zile.
+  const lacksFeeTracking = protocol.revenue30d === null && protocol.fees30d === null;
 
   const signals = [isNew, isVerySmall, hasHighDilution, lacksFeeTracking].filter(
     Boolean
