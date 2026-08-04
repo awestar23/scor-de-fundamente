@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ProtocolFinancials } from "@/lib/protocols";
-import { getCachedProtocolUniverse } from "@/lib/protocols-cached";
+import { getCachedCatalog, getCachedFinancials } from "@/lib/protocols-cached";
 import {
   hasSufficientData,
   riskFlags,
@@ -23,13 +23,19 @@ import { Disclaimer } from "@/components/Disclaimer";
 
 export const revalidate = 3600;
 
+// Prima randare, pe cache rece, trebuie să apuce să se termine — altfel nu
+// populează niciodată cache-ul și fiecare vizitator plătește din nou drumul
+// complet. Sub limita implicită de 10 secunde, paginile de proiect nu se mai
+// încărcau deloc: cererea era abandonată, iar click-ul părea că nu face nimic.
+export const maxDuration = 60;
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const { catalog } = await getCachedProtocolUniverse();
+  const catalog = await getCachedCatalog();
   const entry = catalog.find((p) => p.slug === slug);
 
   return {
@@ -39,7 +45,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProtocolPage({ params }: PageProps) {
   const { slug } = await params;
-  const { financials, catalog } = await getCachedProtocolUniverse();
+  const [financials, catalog] = await Promise.all([
+    getCachedFinancials(),
+    getCachedCatalog(),
+  ]);
   const entry = catalog.find((p) => p.slug === slug);
 
   if (!entry) notFound();
@@ -147,7 +156,7 @@ function ScoredProtocol({
           revenue30d={protocol.revenue30d}
           holdersRevenue30d={protocol.holdersRevenue30d}
           supplySideRevenue30d={protocol.supplySideRevenue30d}
-          supplySideExplanation={protocol.methodology?.SupplySideRevenue ?? null}
+          supplySideExplanation={protocol.supplySideExplanation}
         />
       )}
 

@@ -3,7 +3,6 @@ import {
   fetchFeesOverview,
   fetchProtocols,
   type DefiLlamaFeesOverviewItem,
-  type DefiLlamaMethodology,
   type DefiLlamaProtocolListItem,
 } from "./defillama";
 import { fetchMarkets } from "./coingecko";
@@ -21,17 +20,21 @@ export interface ProtocolFinancials {
   fdv: number | null;
   /** Timestamp unix (secunde): de când e urmărit de DefiLlama. */
   listedAt: number | null;
+  // Atenție la dimensiune: acest obiect se memorează întreg prin
+  // `unstable_cache`, care refuză tăcut orice depășește 2 MB. Când a depășit,
+  // cache-ul a încetat să funcționeze fără niciun mesaj, fiecare cerere a
+  // reînceput să recalculeze tot universul, iar paginile de proiect au încetat
+  // să se mai încarce. Ține doar ce se afișează; restul stă în RawProtocolRow.
+  // Testul din tests/cache-size.test.ts păzește limita.
+
   /** Total fee-uri plătite de utilizatori (regula 3.4: fees ≠ revenue). */
-  fees24h: number | null;
   fees30d: number | null;
   /** Venit reținut de protocol. */
-  revenue24h: number | null;
   revenue7d: number | null;
   revenue30d: number | null;
   /** Venitul ultimului an, raportat de DefiLlama — pentru P/S. */
   revenueAnnualized: number | null;
   /** Venit care ajunge efectiv la deținătorii de token (passthrough real). */
-  holdersRevenue24h: number | null;
   holdersRevenue30d: number | null;
   /**
    * Partea din comisioane care merge către cei care aduc lichiditate sau
@@ -39,8 +42,13 @@ export interface ProtocolFinancials {
    * deținătorii de token. La Ethena e aproape tot: 13,89 M$ din 13,92 M$.
    */
   supplySideRevenue30d: number | null;
-  /** Explicația DefiLlama pentru acest protocol, citată ca atare. */
-  methodology: DefiLlamaMethodology | null;
+  /**
+   * Doar propoziția pe care o afișăm din metodologia DefiLlama, nu obiectul
+   * întreg: păstrat integral pentru toate cele 2000+ de proiecte ocupa 0,66 MB
+   * — o treime din bugetul de cache — pentru un text arătat pe o singură
+   * pagină, câte unul o dată.
+   */
+  supplySideExplanation: string | null;
   /**
    * Versiunile însumate în această intrare (ex. Uniswap V2, V3, V4).
    * Gol pentru proiectele fără versiuni separate.
@@ -289,8 +297,10 @@ export async function getProtocolUniverse(): Promise<ProtocolUniverse> {
 
     // Membrul cu cel mai mare venit e cel mai reprezentativ pentru
     // categorie și chain (ex. Uniswap V3 dictează pentru grupul Uniswap).
+    // Pe 30 de zile, ca peste tot: o singură zi poate răsturna clasamentul
+    // dintr-un vârf întâmplător și ar schimba categoria afișată.
     const lead =
-      [...members].sort((a, b) => (b.revenue24h ?? 0) - (a.revenue24h ?? 0))[0] ??
+      [...members].sort((a, b) => (b.revenue30d ?? 0) - (a.revenue30d ?? 0))[0] ??
       members[0];
 
     // Id-ul de pe părinte are prioritate: e al token-ului proiectului,
@@ -312,16 +322,13 @@ export async function getProtocolUniverse(): Promise<ProtocolUniverse> {
         llamaMcap: maxOrNull(members.map((m) => m.mcap)),
         // Cea mai veche dată de listare din grup = de când e urmărit proiectul.
         listedAt: minOrNull(members.map((m) => m.listEntry?.listedAt ?? null)),
-        fees24h: sumOrNull(members.map((m) => m.fees24h)),
         fees30d: sumOrNull(members.map((m) => m.fees30d)),
-        revenue24h: sumOrNull(members.map((m) => m.revenue24h)),
         revenue7d: sumOrNull(members.map((m) => m.revenue7d)),
         revenue30d: sumOrNull(members.map((m) => m.revenue30d)),
         revenueAnnualized: sumOrNull(members.map((m) => m.revenueAnnualized)),
-        holdersRevenue24h: sumOrNull(members.map((m) => m.holdersRevenue24h)),
         holdersRevenue30d: sumOrNull(members.map((m) => m.holdersRevenue30d)),
         supplySideRevenue30d: sumOrNull(members.map((m) => m.supplySideRevenue30d)),
-        methodology: lead.methodology,
+        supplySideExplanation: lead.methodology?.SupplySideRevenue ?? null,
         components: members.length > 1 ? members.map((m) => m.name).sort() : [],
       },
     };
@@ -351,9 +358,32 @@ export async function getProtocolUniverse(): Promise<ProtocolUniverse> {
   };
 }
 
+/** Doar partea de scoring, fără catalog — ce se memorează pentru pagini. */
+export async function getProtocolFinancials(): Promise<ProtocolFinancials[]> {
+  const { financials } = await getProtocolUniverse();
+  return financials;
+}
+
 /**
- * Catalogul de căutare, agregat la fel ca universul de scoring: cine caută
- * „uniswap" trebuie să găsească un singur Uniswap, nu patru versiuni.
+ * Catalogul de căutare, calculat pe cont propriu din `/protocols` + `/config`.
+ *
+ * Nu are nevoie nici de datele de fee-uri, nici de CoinGecko: pentru căutare
+ * ajung numele, simbolul și TVL-ul. Îl ținem separat de universul de scoring
+ * din două motive — e mult mai ieftin de calculat (o singură cerere în loc de
+ * șase), și își primește propriul buget de 2 MB în cache. Împreună, cele două
+ * ajunseseră la 1,40 MB dintr-un maxim de 2 MB; separate, fiecare are marjă
+ * de creștere de peste 150%.
+ */
+export async function getProtocolCatalog(): Promise<ProtocolCatalogEntry[]> {
+  const [protocols, config] = await Promise.all([fetchProtocols(), fetchConfig()]);
+  const parentsById = new Map(config.parents.map((p) => [p.id, p]));
+
+  return buildCatalog(protocols, parentsById, []);
+}
+
+/**
+ * Agregat la fel ca universul de scoring: cine caută „uniswap" trebuie să
+ * găsească un singur Uniswap, nu patru versiuni.
  */
 function buildCatalog(
   protocols: DefiLlamaProtocolListItem[],

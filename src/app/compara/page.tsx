@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getCachedProtocolUniverse } from "@/lib/protocols-cached";
+import { getCachedCatalog, getCachedFinancials } from "@/lib/protocols-cached";
 import { hasSufficientData } from "@/lib/scoring";
 import { SiteHeader } from "@/components/SiteHeader";
 import { ComparePicker } from "@/components/ComparePicker";
@@ -11,6 +11,8 @@ import { Disclaimer } from "@/components/Disclaimer";
 // Fără `revalidate` aici: pagina depinde de searchParams, deci trebuie
 // randată la cerere. Datele DefiLlama rămân cache-uite o oră prin
 // unstable_cache în getCachedProtocolUniverse, deci nu pierdem nimic.
+export const maxDuration = 60;
+
 export const metadata: Metadata = {
   title: "Comparație — Scor de Fundamente",
 };
@@ -23,7 +25,10 @@ export default async function ComparePage({ searchParams }: PageProps) {
   const { p } = await searchParams;
   const requested = (Array.isArray(p) ? p : p ? [p] : []).slice(0, MAX_COMPARE);
 
-  const { financials, catalog } = await getCachedProtocolUniverse();
+  const [financials, catalog] = await Promise.all([
+    getCachedFinancials(),
+    getCachedCatalog(),
+  ]);
 
   // Păstrăm ordinea din URL, ignorăm slug-urile necunoscute.
   const selected = requested

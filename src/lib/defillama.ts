@@ -70,9 +70,9 @@ export interface DefiLlamaFeesOverviewItem {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  // Răspunsurile brute DefiLlama trec de 30MB (includ istoricul complet per
-  // protocol) — prea mari pentru cache-ul de fetch al Next.js. Cache-uim
-  // rezultatul îngustat, nu răspunsul brut — vezi unstable_cache în protocols.ts.
+  // Chiar și îngustate, răspunsurile depășesc limita de 2 MB a cache-ului de
+  // fetch din Next.js. Cache-uim rezultatul prelucrat, nu răspunsul brut —
+  // vezi unstable_cache în protocols-cached.ts.
   const res = await fetch(url, { cache: "no-store" });
 
   if (!res.ok) {
@@ -162,6 +162,19 @@ export async function fetchConfig(): Promise<{
 }
 
 /**
+ * Excludem graficele istorice complete, pe care nu le folosim niciodată.
+ *
+ * Nu e o optimizare cosmetică: fără ele, un singur răspuns trece de 23 MB, iar
+ * cele patru apeluri însumau peste 85 MB descărcați și parsați la fiecare
+ * randare necache-uită. Pe Vercel asta depășea timpul maxim al funcției, deci
+ * paginile de proiect nu se mai încărcau deloc — click-ul părea că nu face
+ * nimic. Cu excluderea, același răspuns are 3,6 MB și vine de opt ori mai
+ * repede, cu valorile identice (verificat câmp cu câmp, inclusiv methodology).
+ */
+const EXCLUDE_CHARTS =
+  "excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true";
+
+/**
  * GET /overview/fees — fee-uri / venit / venit-pentru-deținători pentru
  * toate protocoalele dintr-o singură cerere, în funcție de `dataType`.
  *
@@ -171,7 +184,9 @@ export async function fetchConfig(): Promise<{
 export async function fetchFeesOverview(
   dataType?: FeesDataType
 ): Promise<DefiLlamaFeesOverviewItem[]> {
-  const query = dataType ? `?dataType=${dataType}` : "";
+  const query = dataType
+    ? `?dataType=${dataType}&${EXCLUDE_CHARTS}`
+    : `?${EXCLUDE_CHARTS}`;
   const raw = await fetchJson<{
     protocols: Array<{
       name: string;

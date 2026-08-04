@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { SearchBox } from "@/components/SearchBox";
 import { Disclaimer } from "@/components/Disclaimer";
-import { getCachedProtocolUniverse } from "@/lib/protocols-cached";
+import { getCachedFinancials } from "@/lib/protocols-cached";
 import { formatPercent, formatUsdCompact } from "@/lib/format";
 
 export const revalidate = 3600;
+export const maxDuration = 60;
 
 export default async function Home() {
-  const { financials } = await getCachedProtocolUniverse();
+  const financials = await getCachedFinancials();
 
   // Punct de plecare pentru cine nu știe ce să caute. Ordonat după venitul
   // reținut de protocol — nu după capitalizare, ca să nu reintroducem exact

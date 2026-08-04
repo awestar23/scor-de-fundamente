@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getCachedProtocolUniverse } from "@/lib/protocols-cached";
+import { getCachedCatalog } from "@/lib/protocols-cached";
 import { searchProtocols } from "@/lib/search";
 
 export const revalidate = 3600;
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get("q") ?? "";
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { catalog } = await getCachedProtocolUniverse();
+    const catalog = await getCachedCatalog();
     const matches = searchProtocols(query, catalog, 8);
 
     return NextResponse.json({

@@ -36,12 +36,7 @@ export function percentile(value: number, universe: number[]): number | null {
  * ci eticheta "Date insuficiente".
  */
 export function hasSufficientData(protocol: ProtocolFinancials): boolean {
-  return (
-    protocol.revenue30d !== null ||
-    protocol.revenue24h !== null ||
-    protocol.fees30d !== null ||
-    protocol.fees24h !== null
-  );
+  return protocol.revenue30d !== null || protocol.fees30d !== null;
 }
 
 // Toate dimensiunile folosesc fereastra de 30 de zile, aceeași cu cea afișată
