@@ -67,6 +67,12 @@ export interface DefiLlamaFeesOverviewItem {
   annualized1y: number | null;
   /** Vine în răspunsul în bloc, deci nu costă o cerere în plus. */
   methodology: DefiLlamaMethodology | null;
+  /**
+   * "chain" pentru lanțuri, "protocol" pentru restul. Singurul mod de a
+   * recunoaște lanțurile care apar DOAR aici — 173 dintre ele, printre care
+   * Cosmos, ICP, Cardano, Polkadot — fiindcă lipsesc din `/protocols`.
+   */
+  protocolType: string | null;
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -196,6 +202,7 @@ export async function fetchFeesOverview(
       total30d?: number | null;
       annualized1y?: number | null;
       methodology?: DefiLlamaMethodology | null;
+      protocolType?: string | null;
     }>;
   }>(`${DEFILLAMA_BASE_URL}/overview/fees${query}`);
 
@@ -207,5 +214,6 @@ export async function fetchFeesOverview(
     total30d: p.total30d ?? null,
     annualized1y: p.annualized1y ?? null,
     methodology: p.methodology ?? null,
+    protocolType: p.protocolType ?? null,
   }));
 }

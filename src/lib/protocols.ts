@@ -106,38 +106,41 @@ export interface RawProtocolRow {
   holdersRevenue30d: number | null;
 }
 
+type ChainToken = { geckoId: string | null; symbol: string | null };
+
 /**
- * Completează token-ul nativ al unui lanț când `/protocols` nu-l raportează.
- * Necesar fiindcă DefiLlama e inconsecvent aici: Bitcoin și Solana vin cu
- * `gecko_id`, dar Ethereum vine cu `symbol: "-"` și `gecko_id: null`, deci
- * ETH ar apărea ca proiect fără token și fără capitalizare.
+ * Completează token-ul nativ al unui lanț când `/protocols` nu-l raportează —
+ * sau când lanțul lipsește cu totul din `/protocols`.
+ *
+ * DefiLlama e inconsecvent aici, în două feluri. Bitcoin și Solana vin cu
+ * `gecko_id`, dar Ethereum vine cu `symbol: "-"` și `gecko_id: null`. Iar 173
+ * de lanțuri — Cosmos, ICP, Cardano, Polkadot, Sui, Starknet — nu apar deloc
+ * în `/protocols`, ci doar în datele de fee-uri. Fără completarea asta, toate
+ * ar arăta ca proiecte fără token și fără capitalizare.
  *
  * Trei garanții împotriva dezinformării, fiindcă a lipi capitalizarea unui
  * token de alt proiect e cea mai gravă greșeală pe care o poate face produsul:
  *
- * 1. Doar `category === "Chain"` — protocolul trebuie să FIE lanțul. Fără asta,
- *    un DEX numit „Cube" ar primi capitalizarea lanțului „Cube", iar „Katana"
- *    (Options Vault) ar primi tokenul lanțului omonim.
+ * 1. Doar pentru lanțuri — fie `category === "Chain"` din `/protocols`, fie
+ *    `protocolType === "chain"` din datele de fee-uri. Fără asta, un DEX numit
+ *    „Cube" ar primi capitalizarea lanțului „Cube", iar „Katana" (Options
+ *    Vault) ar primi tokenul lanțului omonim.
  * 2. Potrivire pe nume **exactă**, fără normalizare. „Ethereum",
  *    „EthereumClassic" și „EthereumPoW" sunt chei distincte în DefiLlama, deci
  *    ETC nu poate primi niciodată datele lui ETH.
  * 3. Doar completăm ce lipsește — nu suprascriem niciodată o valoare existentă.
  */
-function withChainTokenFallback(
-  entry: DefiLlamaProtocolListItem,
-  chainTokens: Map<string, { geckoId: string | null; symbol: string | null }>
-): DefiLlamaProtocolListItem {
-  if (entry.category !== "Chain") return entry;
-  if (entry.geckoId) return entry;
+function chainTokenFor(
+  name: string,
+  isChain: boolean,
+  existingGeckoId: string | null | undefined,
+  chainTokens: Map<string, ChainToken>
+): ChainToken | null {
+  if (!isChain) return null;
+  if (existingGeckoId) return null;
 
-  const token = chainTokens.get(entry.name);
-  if (!token?.geckoId) return entry;
-
-  return {
-    ...entry,
-    geckoId: token.geckoId,
-    symbol: entry.symbol ?? token.symbol,
-  };
+  const token = chainTokens.get(name);
+  return token?.geckoId ? token : null;
 }
 
 async function fetchAllRaw() {
@@ -171,18 +174,55 @@ async function fetchAllRaw() {
     const holdersEntry = holdersRevenueBySlug.get(slug);
     const supplyEntry = supplySideBySlug.get(slug);
 
-    const listEntry = rawListEntry
-      ? withChainTokenFallback(rawListEntry, config.chainTokens)
-      : rawListEntry;
+    const name =
+      feesEntry?.name ??
+      revenueEntry?.name ??
+      holdersEntry?.name ??
+      rawListEntry?.name ??
+      slug;
+
+    // Lanț fie după categoria din /protocols, fie după tipul din fee-uri —
+    // al doilea e singurul semnal pentru cele 173 care lipsesc din /protocols.
+    const isChain =
+      rawListEntry?.category === "Chain" ||
+      feesEntry?.protocolType === "chain" ||
+      revenueEntry?.protocolType === "chain";
+
+    const chainToken = chainTokenFor(
+      name,
+      isChain,
+      rawListEntry?.geckoId,
+      config.chainTokens
+    );
+
+    // Pentru lanțurile absente din /protocols construim o intrare minimă, ca
+    // să aibă simbol, categorie și id CoinGecko ca oricare alt proiect.
+    const listEntry: DefiLlamaProtocolListItem | undefined = rawListEntry
+      ? chainToken
+        ? {
+            ...rawListEntry,
+            geckoId: chainToken.geckoId,
+            symbol: rawListEntry.symbol ?? chainToken.symbol,
+          }
+        : rawListEntry
+      : chainToken
+        ? {
+            name,
+            slug,
+            symbol: chainToken.symbol,
+            category: "Chain",
+            chains: [name],
+            tvl: null,
+            mcap: null,
+            parentProtocol: null,
+            geckoId: chainToken.geckoId,
+            listedAt: null,
+          }
+        : undefined;
 
     return {
       slug,
-      name:
-        feesEntry?.name ??
-        revenueEntry?.name ??
-        holdersEntry?.name ??
-        listEntry?.name ??
-        slug,
+      name,
       listEntry,
       tvl: listEntry?.tvl ?? null,
       mcap: listEntry?.mcap ?? null,
@@ -375,10 +415,35 @@ export async function getProtocolFinancials(): Promise<ProtocolFinancials[]> {
  * de creștere de peste 150%.
  */
 export async function getProtocolCatalog(): Promise<ProtocolCatalogEntry[]> {
-  const [protocols, config] = await Promise.all([fetchProtocols(), fetchConfig()]);
-  const parentsById = new Map(config.parents.map((p) => [p.id, p]));
+  const [protocols, config, fees] = await Promise.all([
+    fetchProtocols(),
+    fetchConfig(),
+    // Necesar: 178 de protocoale — printre care 173 de lanțuri ca Cosmos, ICP,
+    // Cardano, Polkadot — există DOAR aici, nu și în `/protocols`. Fără acest
+    // apel, niciunul dintre ele nu s-ar putea căuta. Cu graficele excluse,
+    // costă 3,6 MB și ~200 ms.
+    fetchFeesOverview(undefined),
+  ]);
 
-  return buildCatalog(protocols, parentsById, []);
+  const parentsById = new Map(config.parents.map((p) => [p.id, p]));
+  const protocolSlugs = new Set(protocols.map((p) => p.slug));
+
+  const doarInFees: ProtocolCatalogEntry[] = fees
+    .filter((f) => !protocolSlugs.has(f.slug))
+    .map((f) => {
+      const token =
+        f.protocolType === "chain" ? config.chainTokens.get(f.name) : undefined;
+
+      return {
+        slug: f.slug,
+        name: f.name,
+        symbol: token?.symbol ?? null,
+        category: f.protocolType === "chain" ? "Chain" : null,
+        tvl: null,
+      };
+    });
+
+  return [...buildCatalog(protocols, parentsById, []), ...doarInFees];
 }
 
 /**

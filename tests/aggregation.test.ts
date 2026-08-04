@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getProtocolUniverse } from "@/lib/protocols";
+import { getProtocolCatalog, getProtocolUniverse } from "@/lib/protocols";
 
 /**
  * Simulează cele patru endpointuri DefiLlama plus CoinGecko, ca să putem
@@ -200,6 +200,73 @@ describe("tokenul nativ al lanțurilor nu contaminează proiecte diferite", () =
     // Nu e categoria "Chain", deci completarea nu se aplică.
     expect(cube?.symbol).toBeNull();
     expect(cube?.mcap).toBeNull();
+  });
+});
+
+/**
+ * 173 de lanțuri — Cosmos, ICP, Cardano, Polkadot, Sui — lipsesc complet din
+ * `/protocols` și există doar în datele de fee-uri. Fără tratarea lor, nu se
+ * puteau nici căuta, nici nu aveau simbol sau capitalizare.
+ */
+describe("lanțurile care există DOAR în datele de fee-uri", () => {
+  const setup = {
+    // Niciunul dintre ele nu apare aici — exact ca în realitate.
+    protocols: [],
+    chainCoingeckoIds: {
+      CosmosHub: { geckoId: "cosmos", symbol: "ATOM" },
+      Cardano: { geckoId: "cardano", symbol: "ADA" },
+    },
+    fees: [
+      { name: "CosmosHub", slug: "cosmoshub", protocolType: "chain", total24h: 50, total30d: 1684 },
+      { name: "Cardano", slug: "cardano", protocolType: "chain", total24h: 1200, total30d: 37760 },
+      // Un protocol obișnuit, cu nume identic cu al unui lanț cunoscut.
+      { name: "Cardano", slug: "cardano-dex", protocolType: "protocol", total24h: 1, total30d: 30 },
+    ],
+    revenue: [
+      { name: "CosmosHub", slug: "cosmoshub", protocolType: "chain", total24h: 0, total30d: 0, annualized1y: 0 },
+      { name: "Cardano", slug: "cardano", protocolType: "chain", total24h: 240, total30d: 7551, annualized1y: 90_000 },
+      { name: "Cardano", slug: "cardano-dex", protocolType: "protocol", total24h: 1, total30d: 30, annualized1y: 365 },
+    ],
+    markets: [
+      { id: "cosmos", market_cap: 720_000_000, fully_diluted_valuation: 800_000_000 },
+      { id: "cardano", market_cap: 7_290_000_000, fully_diluted_valuation: 8_000_000_000 },
+    ],
+  };
+
+  it("primesc simbolul lor din config", async () => {
+    stubApis(setup);
+    const { financials } = await getProtocolUniverse();
+
+    expect(financials.find((p) => p.slug === "cosmoshub")?.symbol).toBe("ATOM");
+    expect(financials.find((p) => p.slug === "cardano")?.symbol).toBe("ADA");
+  });
+
+  it("primesc capitalizarea lor de la CoinGecko", async () => {
+    stubApis(setup);
+    const { financials } = await getProtocolUniverse();
+
+    expect(financials.find((p) => p.slug === "cosmoshub")?.mcap).toBe(720_000_000);
+    expect(financials.find((p) => p.slug === "cardano")?.mcap).toBe(7_290_000_000);
+  });
+
+  it("apar în catalog, deci se pot căuta", async () => {
+    stubApis(setup);
+    const catalog = await getProtocolCatalog();
+
+    const cosmos = catalog.find((c) => c.slug === "cosmoshub");
+    expect(cosmos).toBeDefined();
+    expect(cosmos?.symbol).toBe("ATOM");
+  });
+
+  it("un protocol obișnuit cu nume de lanț NU primește tokenul lanțului", async () => {
+    stubApis(setup);
+    const { financials } = await getProtocolUniverse();
+
+    // Are protocolType "protocol", nu "chain" — deci nu i se aplică nimic,
+    // chiar dacă se numește identic cu un lanț cunoscut.
+    const impostor = financials.find((p) => p.slug === "cardano-dex");
+    expect(impostor?.symbol).toBeNull();
+    expect(impostor?.mcap).toBeNull();
   });
 });
 
